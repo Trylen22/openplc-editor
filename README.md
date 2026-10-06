@@ -1,3 +1,23 @@
+## Agentic OpenPLC fork
+
+This experimental fork adds an agent chat panel that generates and edits IEC Structured Text (ST), creates POU variables, and updates a live ladder sketch beside the ST editor. Open an ST POU and click the AI Chat button to use it.
+
+The ladder pane is a display-only prototype, not a native editable LD program or a verified ST-to-LD conversion. Its current parser handles a subset of assignments, comparisons, and IF conditions; OR branches and more complex control flow are not represented faithfully. ST remains the executable program. Agent edits are applied directly to the editor; review and compile the result before using it.
+
+### Run the agent fork
+
+Use Node.js 22 or 23 and npm 10 or newer:
+
+```bash
+npm install
+export XAI_API_KEY='your-local-xai-key'
+# Optional: select a model available to your xAI account.
+export XAI_MODEL='your-model-id'
+npm run dev
+```
+
+The current default model identifier is `grok-4.6`. `GROK_API_KEY` is also accepted. To keep the key in a local file, set `RUNG_API_KEY_FILE` to its path. A legacy local fallback reads `~/Desktop/AGENTIC_PLC/api_key.txt`. Credentials stay in the Electron main process; source, variable definitions, and chat messages are sent to xAI when you submit a request. Do not commit credentials.
+
 # Open PLC Editor - IDE
 
 ![GitHub stars](https://img.shields.io/github/stars/Autonomy-Logic/openplc-editor?color=fa6470)
@@ -60,6 +80,7 @@ git push origin v4.2.0
 ```
 
 This will automatically:
+
 1. Build the application for all platforms (macOS, Windows, Linux) and architectures (x64, ARM64)
 2. Sign and notarize the macOS builds
 3. Create a GitHub Release with all artifacts attached

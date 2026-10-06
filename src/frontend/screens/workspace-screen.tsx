@@ -4,14 +4,7 @@ import { ImperativePanelHandle } from 'react-resizable-panels'
 import { useShallow } from 'zustand/react/shallow'
 
 import { projectCapabilities } from '../../middleware/shared/ports/types'
-import {
-  useCapabilities,
-  useChatPanel,
-  useDebugger,
-  useDevice,
-  usePlatform,
-  useProject,
-} from '../../middleware/shared/providers'
+import { useCapabilities, useDebugger, useDevice, usePlatform, useProject } from '../../middleware/shared/providers'
 import { ExitIcon } from '../assets/icons/interface/Exit'
 import { ClearConsoleButton } from '../components/_atoms/buttons/console/clear-console'
 import { BranchStatusBar } from '../components/_features/[workspace]/branches'
@@ -26,6 +19,9 @@ import { LibraryManifestEditor } from '../components/_features/[workspace]/edito
 import { MonacoEditor } from '../components/_features/[workspace]/editor/monaco'
 import { PackageManagerEditor } from '../components/_features/[workspace]/editor/package-manager'
 import { ResourcesEditor } from '../components/_features/[workspace]/editor/resource-editor'
+import { RungAgentChat } from '../components/_features/[workspace]/editor/rung-agent-chat'
+/** Display-only OpenPLC ladder assets; ST remains the executable source. */
+import { RungLadderPreview } from '../components/_features/[workspace]/editor/rung-ladder-preview'
 import { ModbusServerEditor } from '../components/_features/[workspace]/editor/server/modbus-server'
 import { OpcUaServerEditor } from '../components/_features/[workspace]/editor/server/opcua-server'
 import { S7CommServerEditor } from '../components/_features/[workspace]/editor/server/s7comm-server'
@@ -63,7 +59,6 @@ import { toast } from '../utils/toast'
 
 const WorkspaceScreen = () => {
   const capabilities = useCapabilities()
-  const ChatPanel = useChatPanel()
   const debuggerPort = useDebugger()
   const device = useDevice()
   const project = useProject()
@@ -116,18 +111,8 @@ const WorkspaceScreen = () => {
     })),
   )
 
-  // RARE: AI state (grouped with shallow)
-  const {
-    isChatOpen,
-    isEnabled: isAIEnabled,
-    hasConsented: hasAIConsented,
-  } = useOpenPLCStore(
-    useShallow((s) => ({
-      isChatOpen: s.ai.isChatOpen,
-      isEnabled: s.ai.isEnabled,
-      hasConsented: s.ai.hasConsented,
-    })),
-  )
+  // LOCAL SKETCH: Agent tab is always available; no paid-AI consent gate.
+  const isChatOpen = useOpenPLCStore(useCallback((s) => s.ai.isChatOpen, []))
 
   // Version control state
   const { activePanel, pendingChangesCount } = useOpenPLCStore(
@@ -699,12 +684,37 @@ const WorkspaceScreen = () => {
                                     return (
                                       <div key={model.meta.name} className={cn('h-full w-full', !isActive && 'hidden')}>
                                         {model.type === 'plc-textual' ? (
-                                          <MonacoEditor
-                                            name={model.meta.name}
-                                            language={model.meta.language}
-                                            path={model.meta.path}
-                                            isActive={isActive}
-                                          />
+                                          model.meta.language === 'st' ? (
+                                            <ResizablePanelGroup direction='horizontal' className='flex h-full w-full'>
+                                              <ResizablePanel defaultSize={58} minSize={30}>
+                                                <MonacoEditor
+                                                  name={model.meta.name}
+                                                  language={model.meta.language}
+                                                  path={model.meta.path}
+                                                  isActive={isActive}
+                                                />
+                                              </ResizablePanel>
+                                              <ResizableHandle className='w-1 bg-brand-light' />
+                                              <ResizablePanel defaultSize={42} minSize={22}>
+                                                <RungLadderPreview
+                                                  source={
+                                                    typeof pous.find((pou) => pou.name === model.meta.name)?.body
+                                                      .value === 'string'
+                                                      ? (pous.find((pou) => pou.name === model.meta.name)?.body
+                                                          .value as string)
+                                                      : ''
+                                                  }
+                                                />
+                                              </ResizablePanel>
+                                            </ResizablePanelGroup>
+                                          ) : (
+                                            <MonacoEditor
+                                              name={model.meta.name}
+                                              language={model.meta.language}
+                                              path={model.meta.path}
+                                              isActive={isActive}
+                                            />
+                                          )
                                         ) : (
                                           <GraphicalEditor
                                             name={model.meta.name}
@@ -857,7 +867,7 @@ const WorkspaceScreen = () => {
                 </ResizablePanelGroup>
               </div>
             </ResizablePanel>
-            {ChatPanel && capabilities.hasAIAssistant && isChatOpen && isAIEnabled && hasAIConsented && (
+            {isChatOpen && (
               <>
                 <ResizableHandle
                   id='chatHandle'
@@ -872,7 +882,7 @@ const WorkspaceScreen = () => {
                   maxSize={50}
                   className='relative flex h-full min-h-0 w-full'
                 >
-                  <ChatPanel />
+                  <RungAgentChat />
                 </ResizablePanel>
               </>
             )}

@@ -1,0 +1,44 @@
+.rung-ir-preview {
+  --rung-line: #171717;
+}
+
+.dark .rung-ir-preview {
+  --rung-line: #d4d4d4;
+}
+
+.display-rung {
+  margin-bottom: 28px;
+}
+
+.display-rung-name {
+  font-size: 11px;
+  opacity: 0.55;
+  margin-bottom: 18px;
+}
+
+.display-rung-row {
+  display: flex;
+  align-items: center;
+  min-height: 88px;
+}
+
+.display-rail {
+  width: 4px;
+  align-self: stretch;
+  min-height: 48px;
+  background: var(--rung-line);
+  flex-shrink: 0;
+}
+
+.display-wire {
+  width: 28px;
+  height: 2px;
+  background: var(--rung-line);
+  flex-shrink: 0;
+}
+
+.display-wire-grow {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 28px;
+}

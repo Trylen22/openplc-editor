@@ -58,3 +58,9 @@ resources/strucpp/
 playwright-report
 /blob-report/
 /playwright/.cache/
+
+# Local agent credentials
+.env
+.env.*
+!.env.example
+api_key.txt

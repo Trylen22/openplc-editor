@@ -7,7 +7,6 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
-import Installer from 'electron-devtools-installer'
 import log from 'electron-log'
 import { autoUpdater } from 'electron-updater'
 import { enableMapSet } from 'immer'
@@ -23,6 +22,7 @@ import { resolveHtmlPath } from '../backend/editor/utils'
 import { getErrorMessage } from '../frontend/utils/get-error-message'
 import MenuBuilder from './menu'
 import MainProcessBridge from './modules/ipc/main'
+import { type RungAgentChatRequest, runRungAgentChat } from './modules/rung-agent'
 import { store } from './modules/store'
 
 enableMapSet()
@@ -36,6 +36,11 @@ class AppUpdater {
 }
 
 Menu.setApplicationMenu(null)
+
+/** Local fork: do not share userData or the single-instance lock with the AppImage. */
+if (!app.isPackaged) {
+  app.setPath('userData', join(app.getPath('appData'), 'open-plc-editor-local-sketch'))
+}
 
 export let mainWindow: BrowserWindow | null = null
 export let splash: BrowserWindow | null = null
@@ -82,33 +87,7 @@ const titlebarOptionsMap: Record<string, OptTitlebar> = {
 
 const titlebarStyles = titlebarOptionsMap[systemInfo] || titlebarOptionsMap.default
 
-const isDebug = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true'
-
-if (isDebug) {
-  void import('electron-debug')
-}
-
-const installExtensions = async () => {
-  const installer = await import('electron-devtools-installer')
-  const forceDownload = !!process.env.UPGRADE_EXTENSIONS
-  const extensions = ['REACT_DEVELOPER_TOOLS']
-
-  try {
-    return await installer.default(
-      extensions.map((name) => installer[name as keyof typeof Installer]),
-      forceDownload,
-    )
-  } catch (error) {
-    logger.warn(`Skipping development extension installation: ${getErrorMessage(error)}`)
-    return []
-  }
-}
-
 const createMainWindow = async () => {
-  // Check if the application is on debug method, install the extensions
-  if (isDebug) {
-    await installExtensions()
-  }
   // Create a string with the resources folder path based on app environment;
   const RESOURCES_PATH = app.isPackaged ? join(process.resourcesPath, 'assets') : join(__dirname, '../../assets')
 
@@ -124,34 +103,35 @@ const createMainWindow = async () => {
 
   /**
    * Splash window configuration
+   * LOCAL SKETCH: skip splash when unpackaged. Closing splash used to destroy
+   * the main window, which looked like the app kicking you out.
    */
+  const skipSplash = !app.isPackaged
 
-  splash = new BrowserWindow({
-    width: 580,
-    height: 366,
-    resizable: false,
-    frame: false,
-    show: false,
-    webPreferences: {
-      sandbox: true,
-    },
-  })
+  if (!skipSplash) {
+    splash = new BrowserWindow({
+      width: 580,
+      height: 366,
+      resizable: false,
+      frame: false,
+      show: false,
+      webPreferences: {
+        sandbox: true,
+      },
+    })
 
-  const splashPath = app.isPackaged
-    ? resolve(__dirname, '../main/splash.html')
-    : 'src/main/modules/preload/splash-screen/splash.html'
-  splash
-    .loadFile(splashPath)
-    .then(() => logger.info('Splash screen loaded successfully'))
-    .catch((error: unknown) => logger.error('Error loading splash screen: ' + getErrorMessage(error)))
+    const splashPath = resolve(__dirname, '../main/splash.html')
+    splash
+      .loadFile(splashPath)
+      .then(() => logger.info('Splash screen loaded successfully'))
+      .catch((error: unknown) => logger.error('Error loading splash screen: ' + getErrorMessage(error)))
 
-  splash.setIgnoreMouseEvents(false)
+    splash.once('ready-to-show', () => {
+      splash?.show()
+    })
 
-  splash.once('ready-to-show', () => {
-    splash?.show()
-  })
-
-  splash.on('closed', () => (splash = null))
+    splash.on('closed', () => (splash = null))
+  }
 
   /**
    * Main window configuration
@@ -190,18 +170,16 @@ const createMainWindow = async () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined')
     }
-    mainWindow.maximize()
     if (process.env.START_MINIMIZED) {
       mainWindow.minimize()
+      return
     }
-    setTimeout(() => {
-      if (splash === null) {
-        mainWindow?.destroy()
-        return
-      }
-      splash.close()
-      mainWindow?.show()
-    }, 3000)
+    splash?.close()
+    splash = null
+    mainWindow.show()
+    mainWindow.maximize()
+    mainWindow.focus()
+    logger.info('Main window shown')
   })
 
   /**
@@ -258,10 +236,8 @@ const createMainWindow = async () => {
     mainWindow.maximize()
   }
 
-  // Open devtools if the app is not packaged;
-  if (isDebug) {
-    mainWindow.webContents.openDevTools()
-  }
+  // LOCAL SKETCH: do not auto-open DevTools. A second window made it easy
+  // to close the editor by accident. Use Ctrl+Shift+I if you need them.
 
   // Open urls in the user's browser
   mainWindow.webContents.setWindowOpenHandler((edata) => {
@@ -319,8 +295,9 @@ if (release().startsWith('6.1')) app.disableHardwareAcceleration()
 // Set application name for Windows 10+ notifications;
 if (process.platform === 'win32') app.setAppUserModelId(app.getName())
 
-// Ensure only one instance of the application is running;
-if (!app.requestSingleInstanceLock()) {
+// Ensure only one packaged instance is running. The local source sketch
+// uses a separate userData path so it can sit beside the AppImage.
+if (app.isPackaged && !app.requestSingleInstanceLock()) {
   app.quit()
   process.exit(0)
 }
@@ -406,6 +383,12 @@ app.on('second-instance', () => {
 app
   .whenReady()
   .then(() => {
+    ipcMain.handle('rung-agent:chat', async (_event, request: RungAgentChatRequest) => {
+      if (request === undefined || !Array.isArray(request.messages)) {
+        return { ok: false as const, error: 'Invalid chat payload.' }
+      }
+      return runRungAgentChat(request)
+    })
     void createMainWindow()
     // Handle the app activation event;
     app.on('activate', () => {

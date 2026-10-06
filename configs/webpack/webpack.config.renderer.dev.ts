@@ -145,9 +145,14 @@ const configuration: webpack.Configuration = {
   },
 
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: ['.tsx', '.ts', '.jsx', '.js'],
+    extensionAlias: {
+      '.js': ['.ts', '.tsx', '.js'],
+    },
     alias: {
       '@src': srcPath,
+      react: join(webpackPaths.rootPath, 'node_modules/react'),
+      'react-dom': join(webpackPaths.rootPath, 'node_modules/react-dom'),
     },
   },
 
