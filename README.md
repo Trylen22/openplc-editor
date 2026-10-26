@@ -1,14 +1,22 @@
-## Agentic OpenPLC fork
+# Agentic OpenPLC fork
 
 This experimental fork adds an agent chat panel that generates and edits IEC Structured Text (ST), creates POU variables, and updates a live ladder sketch beside the ST editor. Open an ST POU and click the AI Chat button to use it.
 
 The ladder pane is a display-only prototype, not a native editable LD program or a verified ST-to-LD conversion. Its current parser handles a subset of assignments, comparisons, and IF conditions; OR branches and more complex control flow are not represented faithfully. ST remains the executable program. Agent edits are applied directly to the editor; review and compile the result before using it.
+
+[![Structured Text edits updating the experimental ladder sketch](docs/demo/preview.webp)](https://trylen22.github.io/demos/openplc/)
+
+[Watch the captioned demonstration](https://trylen22.github.io/demos/openplc/). The page also provides the MP4 and subtitle file.
+
+The recording demonstrates local editor behavior with sample code. No PLC is connected, no program is downloaded, and the example is not presented as a commissioned control program. The agent panel is shown, but the recording does not demonstrate a model response.
 
 ### Run the agent fork
 
 Use Node.js 22 or 23 and npm 10 or newer:
 
 ```bash
+git clone --branch feature/ladder-agent https://github.com/Trylen22/openplc-editor.git
+cd openplc-editor
 npm install
 export XAI_API_KEY='your-local-xai-key'
 # Optional: select a model available to your xAI account.
@@ -18,7 +26,7 @@ npm run dev
 
 The current default model identifier is `grok-4.6`. `GROK_API_KEY` is also accepted. To keep the key in a local file, set `RUNG_API_KEY_FILE` to its path. A legacy local fallback reads `~/Desktop/AGENTIC_PLC/api_key.txt`. Credentials stay in the Electron main process; source, variable definitions, and chat messages are sent to xAI when you submit a request. Do not commit credentials.
 
-# Open PLC Editor - IDE
+## Upstream OpenPLC Editor
 
 ![GitHub stars](https://img.shields.io/github/stars/Autonomy-Logic/openplc-editor?color=fa6470)
 ![GitHub issues](https://img.shields.io/github/issues/Autonomy-Logic/openplc-editor?color=d8b22d)
